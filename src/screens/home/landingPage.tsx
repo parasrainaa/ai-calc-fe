@@ -20,7 +20,7 @@ const LandingPage = () => {
   const navigation = [
     { name: 'Features', href: '#features' },
     // { name: 'Demo', href: '#demo' },
-    { name: 'GitHub', href: 'https://github.com/ParasRaina01/ai' },
+    { name: 'GitHub', href: '/https://github.com/ParasRaina01/ai-calc-fe//ai' },
   ];
 
   return (
@@ -135,7 +135,7 @@ const LandingPage = () => {
                 <h3 className="text-xl font-semibold mb-2">Natural Drawing</h3>
                 <p className="text-gray-400">
                   Draw mathematical expressions as naturally as you would on paper. 
-                  Our app recognizes your handwriting in real-time.
+                  {/* Our app recognizes your handwriting in real-time. */}
                 </p>
               </CardContent>
             </Card>
