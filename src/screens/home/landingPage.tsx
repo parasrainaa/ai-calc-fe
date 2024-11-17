@@ -15,6 +15,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useNavigate } from "react-router-dom";
 
 const LandingPage = () => {
   const navigation = [
@@ -22,6 +23,7 @@ const LandingPage = () => {
     // { name: 'Demo', href: '#demo' },
     { name: 'GitHub', href: '/https://github.com/ParasRaina01/ai-calc-fe//ai' },
   ];
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white">
@@ -49,7 +51,7 @@ const LandingPage = () => {
               <Button 
                 size="sm" 
                 className="bg-purple-600 hover:bg-purple-700"
-                onClick={() => window.location.href = '/app'}
+                onClick={() => navigate('/app')}
               >
                 Try Now
               </Button>

@@ -3,7 +3,8 @@ import '@mantine/core/styles.css';
 import { MantineProvider } from '@mantine/core';
 import '@/index.css';
 import LandingPage from '@/screens/home/landingPage';
-import Home from '@/screens/home/index';
+// import Home from '@/screens/home/index';
+import Home from './screens/home/index';
 
 const paths = [     
   {         
