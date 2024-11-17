@@ -114,7 +114,7 @@ const LandingPage = () => {
               size="lg" 
               variant="outline" 
               className="border-purple-600 text-purple-400 hover:bg-purple-600/10 w-full sm:w-auto"
-              onClick={() => window.location.href = 'https://github.com/yourusername/your-repo'}
+              onClick={() => window.location.href = 'https://github.com/ParasRaina01/ai-calc-fe'}
             >
               <Github className="mr-2 w-4 h-4" />
               View on GitHub
