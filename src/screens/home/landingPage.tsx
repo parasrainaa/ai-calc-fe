@@ -5,7 +5,7 @@ import axios from 'axios';
 import Draggable from 'react-draggable';
 import {SWATCHES} from '@/constants';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eraser, Undo } from 'lucide-react';
 
 interface GeneratedResult {
     expression: string;
@@ -29,6 +29,11 @@ interface Point {
     y: number;
 }
 
+interface DrawingState {
+    imageData: ImageData;
+    color: string;
+}
+
 export default function Home() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -40,6 +45,54 @@ export default function Home() {
     const [latexExpression, setLatexExpression] = useState<Array<string>>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [lastPoint, setLastPoint] = useState<Point | null>(null);
+    const [isEraser, setIsEraser] = useState(false);
+    const [drawingHistory, setDrawingHistory] = useState<DrawingState[]>([]);
+    const [currentStep, setCurrentStep] = useState(-1);
+
+    const saveDrawingState = () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const newHistory = drawingHistory.slice(0, currentStep + 1);
+                newHistory.push({ imageData, color });
+                setDrawingHistory(newHistory);
+                setCurrentStep(currentStep + 1);
+            }
+        }
+    };
+
+    const undo = () => {
+        if (currentStep > 0) {
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    const previousState = drawingHistory[currentStep - 1];
+                    ctx.putImageData(previousState.imageData, 0, 0);
+                    setColor(previousState.color);
+                    setCurrentStep(currentStep - 1);
+                }
+            }
+        } else if (currentStep === 0) {
+            // If at first step, clear canvas
+            resetCanvas();
+            setCurrentStep(-1);
+            setDrawingHistory([]);
+        }
+    };
+
+    const toggleEraser = () => {
+        setIsEraser(!isEraser);
+        if (!isEraser) {
+            // Store current color before switching to eraser
+            setColor('rgb(0, 0, 0)'); // Set to background color
+        } else {
+            // Restore previous color when switching back from eraser
+            setColor('rgb(255, 255, 255)');
+        }
+    };
 
     const handleAPIError = (error: APIError) => {
         console.error('API Error:', error);
@@ -73,14 +126,19 @@ export default function Home() {
         if (canvas) {
             const parent = canvas.parentElement;
             if (parent) {
-                canvas.width = parent.clientWidth;
-                canvas.height = window.innerHeight - canvas.offsetTop;
-                
-                // Preserve drawing after resize
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
+                    // Store the current image data
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // Resize canvas
+                    canvas.width = parent.clientWidth;
+                    canvas.height = window.innerHeight - canvas.offsetTop;
+                    
+                    // Restore drawing after resize
+                    ctx.putImageData(imageData, 0, 0);
                     ctx.lineCap = 'round';
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = isEraser ? 20 : 3;
                     ctx.strokeStyle = color;
                 }
             }
@@ -108,6 +166,8 @@ export default function Home() {
             setResult(undefined);
             setDictOfVars({});
             setReset(false);
+            setDrawingHistory([]);
+            setCurrentStep(-1);
         }
     }, [reset]);
 
@@ -190,6 +250,8 @@ export default function Home() {
             if (ctx) {
                 ctx.beginPath();
                 ctx.moveTo(point.x, point.y);
+                ctx.lineWidth = isEraser ? 20 : 3;
+                ctx.strokeStyle = isEraser ? 'rgb(0, 0, 0)' : color;
                 setIsDrawing(true);
                 setLastPoint(point);
             }
@@ -205,7 +267,8 @@ export default function Home() {
         if (canvas && lastPoint) {
             const ctx = canvas.getContext('2d');
             if (ctx) {
-                ctx.strokeStyle = color;
+                ctx.strokeStyle = isEraser ? 'rgb(0, 0, 0)' : color;
+                ctx.lineWidth = isEraser ? 20 : 3;
                 ctx.beginPath();
                 ctx.moveTo(lastPoint.x, lastPoint.y);
                 ctx.lineTo(point.x, point.y);
@@ -216,6 +279,9 @@ export default function Home() {
     };
 
     const stopDrawing = () => {
+        if (isDrawing) {
+            saveDrawingState();
+        }
         setIsDrawing(false);
         setLastPoint(null);
     };
@@ -309,15 +375,37 @@ export default function Home() {
             )}
             
             <div className="flex flex-col sm:flex-row justify-between items-center p-2 gap-2 z-20">
-                <Button
-                    onClick={() => setReset(true)}
-                    className="w-full sm:w-auto bg-black text-white"
-                    variant="default" 
-                    color="black"
-                    disabled={isLoading}
-                >
-                    Reset
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        onClick={() => setReset(true)}
+                        className="bg-black text-white"
+                        variant="default" 
+                        color="black"
+                        disabled={isLoading}
+                    >
+                        Reset
+                    </Button>
+                    <Button
+                        onClick={undo}
+                        className="bg-black text-white"
+                        variant="default"
+                        color="black"
+                        disabled={isLoading || currentStep < 0}
+                    >
+                        <Undo className="w-4 h-4 mr-2" />
+                        Undo
+                    </Button>
+                    <Button
+                        onClick={toggleEraser}
+                        className={`bg-black text-white ${isEraser ? 'border-2 border-white' : ''}`}
+                        variant="default"
+                        color="black"
+                        disabled={isLoading}
+                    >
+                        <Eraser className="w-4 h-4 mr-2" />
+                        Eraser
+                    </Button>
+                </div>
                 
                 <div className="flex-grow flex justify-center overflow-x-auto py-2">
                     <Group className="z-20 flex-nowrap">
@@ -325,11 +413,17 @@ export default function Home() {
                             <ColorSwatch 
                                 key={swatch} 
                                 color={swatch} 
-                                onClick={() => !isLoading && setColor(swatch)}
+                                onClick={() => {
+                                    if (!isLoading) {
+                                        setColor(swatch);
+                                        setIsEraser(false);
+                                    }
+                                }}
                                 style={{ 
                                     cursor: isLoading ? 'not-allowed' : 'pointer',
                                     minWidth: '24px',
-                                    minHeight: '24px'
+                                    minHeight: '24px',
+                                    border: color === swatch && !isEraser ? '2px solid white' : 'none'
                                 }}
                             />
                         ))}
@@ -366,7 +460,7 @@ export default function Home() {
                     onTouchMove={draw}
                     onTouchEnd={stopDrawing}
                     style={{ 
-                        cursor: isLoading ? 'not-allowed' : 'crosshair',
+                        cursor: isLoading ? 'not-allowed' : isEraser ? 'cell' : 'crosshair',
                         opacity: isLoading ? 0.7 : 1 
                     }}
                 />
