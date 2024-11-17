@@ -5,7 +5,7 @@ import { defineConfig } from "vite"
  
 export default defineConfig({
   plugins: [react(),eslint()],
-  base:'/vite-project/',
+  base:'/',
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
