@@ -4,6 +4,7 @@ import { MantineProvider } from '@mantine/core';
 import '@/index.css';
 import LandingPage from '@/screens/home/landingPage';
 import Home from '@/screens/home/index';
+import { Toaster } from 'sonner';
 // import Home from './screens/home/';
 
 const paths = [     
@@ -25,6 +26,7 @@ const BrowserRouter = createBrowserRouter(paths);
 const App = () => {
     return (
     <MantineProvider>
+      <Toaster richColors position="top-right" />
       <RouterProvider router={BrowserRouter}/>
     </MantineProvider>
     )

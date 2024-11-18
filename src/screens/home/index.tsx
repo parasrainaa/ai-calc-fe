@@ -199,19 +199,21 @@ export default function Home() {
     const getPointerPosition = (event: React.MouseEvent | React.TouchEvent | TouchEvent): Point => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
-
+    
         const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
         
         if ('touches' in event) {
             const touch = event.touches[0];
             return {
-                x: touch.clientX - rect.left,
-                y: touch.clientY - rect.top
+                x: (touch.clientX - rect.left + window.scrollX) * scaleX,
+                y: (touch.clientY - rect.top + window.scrollY) * scaleY
             };
         } else {
             return {
-                x: (event as React.MouseEvent).clientX - rect.left,
-                y: (event as React.MouseEvent).clientY - rect.top
+                x: ((event as React.MouseEvent).clientX - rect.left + window.scrollX) * scaleX,
+                y: ((event as React.MouseEvent).clientY - rect.top + window.scrollY) * scaleY
             };
         }
     };
@@ -349,7 +351,6 @@ export default function Home() {
                         });
                     }, 1000);
                 });
-
                 toast.success('Success', {
                     description: 'Expression processed successfully!',
                     duration: 2000,
@@ -448,10 +449,10 @@ export default function Home() {
                 </Button>
             </div>
 
-            <div className="relative flex-grow">
+            <div className="relative flex-grow overflow-x-auto bg-black">
                 <canvas
                     ref={canvasRef}
-                    className="absolute top-0 left-0 w-full h-full touch-none"
+                    className="absolute top-0 left-0 w-full h-full touch-none overflow-x-auto "
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
