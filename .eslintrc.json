@@ -8,10 +8,7 @@
     "react-app"
   ],
   "parser": "@typescript-eslint/parser",
-  "plugins": [
-    "@typescript-eslint",
-    "import",
-  ],
+  "plugins": ["@typescript-eslint", "import"],
   "settings": {
     "react": {
       "pragma": "React",
@@ -58,12 +55,16 @@
     "@typescript-eslint/explicit-function-return-type": 0,
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "no-underscore-dangle": "off",
-    "indent": [2, 4, {"SwitchCase": 1}],
-    "key-spacing": [2, {
-      "singleLine": {
-        "beforeColon": false,
-        "afterColon": true
-      }}],
+    "indent": [2, 4, { "SwitchCase": 1 }],
+    "key-spacing": [
+      2,
+      {
+        "singleLine": {
+          "beforeColon": false,
+          "afterColon": true
+        }
+      }
+    ],
     "@typescript-eslint/member-delimiter-style": 2,
     "@typescript-eslint/no-unsafe-declaration-merging": "off",
     "import/order": [
