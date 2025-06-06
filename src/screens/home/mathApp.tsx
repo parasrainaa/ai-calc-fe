@@ -18,6 +18,10 @@ function MathApp() {
     setResults((prev) => [result, ...prev]);
   };
 
+  const handleResults = (results: MathResult[]) => {
+    setResults((prev) => [...results, ...prev]);
+  };
+
   const clearResults = () => {
     setResults([]);
   };
@@ -51,7 +55,7 @@ function MathApp() {
         </div>
       </div>
 
-      <MathCanvas onResult={handleResult} />
+      <MathCanvas onResult={handleResult} onResults={handleResults} />
 
       {showHistory && (
         <div className="absolute top-20 right-4 w-80 max-h-[calc(100vh-100px)] bg-white rounded-xl shadow-2xl border border-stone-200 z-30">

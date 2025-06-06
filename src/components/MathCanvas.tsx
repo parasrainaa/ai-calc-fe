@@ -7,6 +7,7 @@ import "tldraw/tldraw.css";
 
 interface MathCanvasProps {
   onResult?: (result: MathResult) => void;
+  onResults?: (results: MathResult[]) => void;
 }
 
 interface MathResult {
@@ -15,7 +16,7 @@ interface MathResult {
   assign?: boolean;
 }
 
-function MathCanvas({ onResult }: MathCanvasProps) {
+function MathCanvas({ onResult, onResults }: MathCanvasProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ x: -20, y: -20 });
   const [isDragging, setIsDragging] = useState(false);
@@ -123,7 +124,6 @@ function MathCanvas({ onResult }: MathCanvasProps) {
         let mathResult: MathResult | null = null;
 
         if (Array.isArray(result.data) && result.data.length > 0) {
-          const first = result.data[0];
           const errorExprs = [
             "API Configuration Error",
             "Response Parsing Error",
@@ -131,11 +131,33 @@ function MathCanvas({ onResult }: MathCanvasProps) {
             "No equation detected",
             "API Error",
           ];
+          
+          // Check if the first result is an error
+          const first = result.data[0];
           if (errorExprs.includes(first.expr)) {
             toast.error(first.result);
             return;
           }
-          mathResult = first;
+          
+          // If we have multiple results, handle them all
+          if (result.data.length > 1) {
+            const allResults = result.data.map((item: any) => ({
+              expr: item.expr || "Expression",
+              result: String(item.result || "No result"),
+              assign: item.assign || false,
+            }));
+            
+            // Add all results to history
+            onResults?.(allResults);
+            
+            // Show success message for multiple equations
+            toast.success(`Solved ${allResults.length} equations successfully!`);
+            
+            // For backward compatibility, still call onResult with the first one
+            mathResult = allResults[0];
+          } else {
+            mathResult = first;
+          }
         } else if (result.expr && result.result) {
           mathResult = result;
         } else if (result.expression && result.answer) {
@@ -177,7 +199,11 @@ function MathCanvas({ onResult }: MathCanvasProps) {
           console.log("Calling onResult with:", mathResult);
           onResult?.(mathResult);
           drawResult(mathResult.expr, mathResult.result);
-          toast.success("Expression processed successfully!");
+          
+          // Only show single success toast if we haven't already shown multi-equation toast
+          if (!(Array.isArray(result.data) && result.data.length > 1)) {
+            toast.success("Expression processed successfully!");
+          }
           return;
         }
 
@@ -194,7 +220,7 @@ function MathCanvas({ onResult }: MathCanvasProps) {
         setIsProcessing(false);
       }
     },
-    [onResult],
+    [onResult, onResults],
   );
 
   const handleMouseDown = useCallback(
