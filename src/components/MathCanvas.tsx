@@ -139,9 +139,8 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
             return;
           }
           
-          // If we have multiple results, handle them all
           if (result.data.length > 1) {
-            const allResults = result.data.map((item: any) => ({
+            const allResults = result.data.map((item: MathResult) => ({
               expr: item.expr || "Expression",
               result: String(item.result || "No result"),
               assign: item.assign || false,
