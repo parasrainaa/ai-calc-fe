@@ -4,6 +4,7 @@ import { useCallback, useState, useRef } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import "tldraw/tldraw.css";
+import { LaTexRenderer, toLatex } from "./LaTexRenderer";
 
 interface MathCanvasProps {
   onResult?: (result: MathResult) => void;
@@ -18,6 +19,7 @@ interface MathResult {
 
 function MathCanvas({ onResult, onResults }: MathCanvasProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentResult, setCurrentResult] = useState<MathResult | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: -20, y: -20 });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{
@@ -26,7 +28,6 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
     initialX: number;
     initialY: number;
   } | null>(null);
-  const resultCanvasRef = useRef<HTMLCanvasElement>(null);
 
   interface APIErrorResponse {
     message: string;
@@ -60,21 +61,7 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
     toast.error("Error", { description: errorMessage, duration: 5000 });
   };
 
-  const drawResult = (expr: string, answer: string) => {
-    const canvas = resultCanvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "white";
-    ctx.font = "24px monospace";
-    ctx.textBaseline = "top";
-    const text = `${expr} = ${answer}`;
-    ctx.fillText(text, 10, 10);
-  };
+
 
   const handleSolveMath = useCallback(
     async (editor: Editor) => {
@@ -112,7 +99,7 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
 
         const response = await axios({
           method: "post",
-          url: `${import.meta.env.VITE_API_URL || "http://localhost:8900"}/calculate`,
+          url: `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/calculate`,
           data: {
             image: canvas.toDataURL("image/png"),
             dict_of_vars: {},
@@ -149,11 +136,17 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
             // Add all results to history
             onResults?.(allResults);
             
+            // Set current result for overlay display (first result)
+            setCurrentResult(allResults[0]);
+            
+            // Auto-hide result after 5 seconds
+            setTimeout(() => setCurrentResult(null), 5000);
+            
             // Show success message for multiple equations
             toast.success(`Solved ${allResults.length} equations successfully!`);
             
-            // For backward compatibility, still call onResult with the first one
-            mathResult = allResults[0];
+            // Early return to avoid duplicate processing
+            return;
           } else {
             mathResult = first;
           }
@@ -197,7 +190,10 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
         if (mathResult) {
           console.log("Calling onResult with:", mathResult);
           onResult?.(mathResult);
-          drawResult(mathResult.expr, mathResult.result);
+          setCurrentResult(mathResult);
+          
+          // Auto-hide result after 5 seconds
+          setTimeout(() => setCurrentResult(null), 5000);
           
           // Only show single success toast if we haven't already shown multi-equation toast
           if (!(Array.isArray(result.data) && result.data.length > 1)) {
@@ -352,17 +348,28 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
         <Tldraw>
           <EsotericToolbar />
         </Tldraw>
-        <canvas
-          ref={resultCanvasRef}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-          }}
-        />
+        {currentResult && (
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              backgroundColor: "white",
+              padding: "8px 12px",
+              borderRadius: "8px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              border: "1px solid #e5e7eb",
+              pointerEvents: "none",
+              zIndex: 10,
+            }}
+          >
+            <LaTexRenderer 
+              latex={toLatex(currentResult.expr, currentResult.result)}
+              displayMode={false}
+              className="text-lg"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

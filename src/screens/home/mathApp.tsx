@@ -2,6 +2,7 @@ import { useState } from "react";
 import MathCanvas from "@/components/MathCanvas";
 import { ArrowLeft, History, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { LaTexRenderer, toLatex } from "@/components/LaTexRenderer";
 
 interface MathResult {
   expr: string;
@@ -101,12 +102,11 @@ function MathApp() {
                     key={index}
                     className="bg-stone-50 rounded-lg p-3 border border-stone-200 hover:bg-stone-100 transition-colors"
                   >
-                    <div className="font-mono text-sm mb-1 text-stone-600">
-                      {result.expr}
-                    </div>
-                    <div className="font-mono text-lg font-medium text-stone-900">
-                      = {result.result}
-                    </div>
+                    <LaTexRenderer 
+                      latex={toLatex(result.expr, result.result)}
+                      displayMode={true}
+                      className="text-base"
+                    />
                     {result.assign && (
                       <div className="text-xs text-stone-500 mt-1">
                         Variable assigned
@@ -131,11 +131,12 @@ function MathApp() {
       {results.length > 0 && !showHistory && (
         <div className="absolute top-20 right-4 bg-white rounded-lg shadow-lg border border-stone-200 p-4 z-20 min-w-64">
           <div className="text-xs text-stone-500 mb-1">Latest Solution:</div>
-          <div className="font-mono text-sm text-stone-600 mb-1">
-            {results[0].expr}
-          </div>
-          <div className="font-mono text-xl font-bold text-stone-900">
-            = {results[0].result}
+          <div className="text-lg">
+            <LaTexRenderer 
+              latex={toLatex(results[0].expr, results[0].result)}
+              displayMode={true}
+              className="my-2"
+            />
           </div>
           <button
             onClick={() => setShowHistory(true)}
