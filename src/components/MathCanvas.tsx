@@ -119,7 +119,6 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
             "API Error",
           ];
           
-          // Check if the first result is an error
           const first = result.data[0];
           if (errorExprs.includes(first.expr)) {
             toast.error(first.result);
@@ -133,19 +132,13 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
               assign: item.assign || false,
             }));
             
-            // Add all results to history
             onResults?.(allResults);
             
-            // Set current result for overlay display (first result)
             setCurrentResult(allResults[0]);
             
-            // Auto-hide result after 5 seconds
             setTimeout(() => setCurrentResult(null), 5000);
             
-            // Show success message for multiple equations
             toast.success(`Solved ${allResults.length} equations successfully!`);
-            
-            // Early return to avoid duplicate processing
             return;
           } else {
             mathResult = first;
@@ -192,10 +185,8 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
           onResult?.(mathResult);
           setCurrentResult(mathResult);
           
-          // Auto-hide result after 5 seconds
           setTimeout(() => setCurrentResult(null), 5000);
           
-          // Only show single success toast if we haven't already shown multi-equation toast
           if (!(Array.isArray(result.data) && result.data.length > 1)) {
             toast.success("Expression processed successfully!");
           }
