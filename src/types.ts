@@ -16,6 +16,7 @@ export interface MathResult {
 export interface CalculateRequest {
     image: string;
     dict_of_vars: Record<string, number>;
+    question?: string;
 }
 
 export interface CalculateResponse {
