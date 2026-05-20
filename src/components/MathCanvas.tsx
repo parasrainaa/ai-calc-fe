@@ -5,19 +5,28 @@ import axios from "axios";
 import { toast } from "sonner";
 import "tldraw/tldraw.css";
 import { LaTexRenderer, toLatex } from "./LaTexRenderer";
+import type { MathResult, DictOfVars } from "@/types";
 
 interface MathCanvasProps {
   onResult?: (result: MathResult) => void;
   onResults?: (results: MathResult[]) => void;
+  dictOfVars?: DictOfVars;
 }
 
-interface MathResult {
-  expr: string;
-  result: string;
-  assign?: boolean;
-}
+const normalizeMathResult = (item: Partial<MathResult>): MathResult => ({
+  expr: item.expr || "Expression",
+  result: String(item.result || "No result"),
+  assign: item.assign || false,
+  steps: Array.isArray(item.steps) ? item.steps : undefined,
+  graphable: item.graphable || false,
+  plotFunction: item.plotFunction,
+  plotDomain:
+    Array.isArray(item.plotDomain) && item.plotDomain.length === 2
+      ? [item.plotDomain[0], item.plotDomain[1]] as [number, number]
+      : undefined,
+});
 
-function MathCanvas({ onResult, onResults }: MathCanvasProps) {
+function MathCanvas({ onResult, onResults, dictOfVars = {} }: MathCanvasProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentResult, setCurrentResult] = useState<MathResult | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: -20, y: -20 });
@@ -30,38 +39,33 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
   } | null>(null);
 
   interface APIErrorResponse {
-    message: string;
-    error: string;
+    message?: string;
+    error?: string;
     detail?: string;
   }
-  const handleAPIError = (error: unknown) => {
+
+  const handleAPIError = useCallback((error: unknown) => {
     console.error("API Error:", error);
     let errorMessage = "An unexpected error occurred";
+
     if (axios.isAxiosError(error)) {
       if (error.response) {
         const data = error.response.data as APIErrorResponse;
-        if (error.response.status === 500) {
-          if (data.detail?.includes("UnboundLocalError: local variable")) {
-            errorMessage =
-              "Unable to process the mathematical expression. Please make sure your drawing is clear and try again.";
-          } else {
-            errorMessage = "Server error occurred. Please try again later.";
-          }
-        } else {
-          errorMessage =
-            data.message ||
-            data.error ||
-            "An error occurred while processing your request";
-        }
+        errorMessage =
+          data.error ||
+          data.detail ||
+          data.message ||
+          `Request failed with status ${error.response.status}`;
       } else if (error.request) {
         errorMessage =
           "Unable to reach the server. Please check your internet connection.";
+      } else if (error.message) {
+        errorMessage = error.message;
       }
     }
+
     toast.error("Error", { description: errorMessage, duration: 5000 });
-  };
-
-
+  }, []);
 
   const handleSolveMath = useCallback(
     async (editor: Editor) => {
@@ -102,7 +106,7 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
           url: `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/calculate`,
           data: {
             image: canvas.toDataURL("image/png"),
-            dict_of_vars: {},
+            dict_of_vars: dictOfVars,
           },
         });
 
@@ -118,45 +122,51 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
             "No equation detected",
             "API Error",
           ];
-          
+
           const first = result.data[0];
           if (errorExprs.includes(first.expr)) {
             toast.error(first.result);
             return;
           }
-          
+
           if (result.data.length > 1) {
-            const allResults = result.data.map((item: MathResult) => ({
-              expr: item.expr || "Expression",
-              result: String(item.result || "No result"),
-              assign: item.assign || false,
-            }));
-            
+            const allResults = result.data.map((item: MathResult) =>
+              normalizeMathResult(item),
+            );
+
             onResults?.(allResults);
-            
+
             setCurrentResult(allResults[0]);
-            
+
             setTimeout(() => setCurrentResult(null), 5000);
-            
+
             toast.success(`Solved ${allResults.length} equations successfully!`);
             return;
           } else {
-            mathResult = first;
+            mathResult = normalizeMathResult(first);
           }
         } else if (result.expr && result.result) {
-          mathResult = result;
+          mathResult = normalizeMathResult(result);
         } else if (result.expression && result.answer) {
-          mathResult = {
+          mathResult = normalizeMathResult({
             expr: result.expression,
             result: result.answer,
             assign: result.assign || false,
-          };
+            steps: result.steps,
+            graphable: result.graphable,
+            plotFunction: result.plotFunction,
+            plotDomain: result.plotDomain,
+          });
         } else if (result.answer || result.solution) {
-          mathResult = {
+          mathResult = normalizeMathResult({
             expr: result.expression || result.equation || "Expression",
             result: result.answer || result.solution,
             assign: result.assign || false,
-          };
+            steps: result.steps,
+            graphable: result.graphable,
+            plotFunction: result.plotFunction,
+            plotDomain: result.plotDomain,
+          });
         } else if (typeof result === "object" && result !== null) {
           const expr =
             result.expr ||
@@ -172,11 +182,15 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
             result.value;
 
           if (answer) {
-            mathResult = {
+            mathResult = normalizeMathResult({
               expr: String(expr),
               result: String(answer),
               assign: result.assign || false,
-            };
+              steps: result.steps,
+              graphable: result.graphable,
+              plotFunction: result.plotFunction,
+              plotDomain: result.plotDomain,
+            });
           }
         }
 
@@ -184,9 +198,9 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
           console.log("Calling onResult with:", mathResult);
           onResult?.(mathResult);
           setCurrentResult(mathResult);
-          
+
           setTimeout(() => setCurrentResult(null), 5000);
-          
+
           if (!(Array.isArray(result.data) && result.data.length > 1)) {
             toast.success("Expression processed successfully!");
           }
@@ -206,7 +220,7 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
         setIsProcessing(false);
       }
     },
-    [onResult, onResults],
+    [dictOfVars, handleAPIError, onResult, onResults],
   );
 
   const handleMouseDown = useCallback(
@@ -316,6 +330,62 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
                 </div>
               </button>
 
+              <button
+                onClick={async () => {
+                  try {
+                    const shapeIds = Array.from(editor.getCurrentPageShapeIds());
+                    if (shapeIds.length === 0) {
+                      toast.error("Nothing to export - draw something first!");
+                      return;
+                    }
+
+                    const svg = await editor.getSvgElement(shapeIds, {
+                      scale: 2,
+                      background: true,
+                    });
+
+                    if (!svg) {
+                      toast.error("Failed to generate export");
+                      return;
+                    }
+
+                    // Convert SVG to PNG
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    const svgData = new XMLSerializer().serializeToString(svg);
+                    const img = new Image();
+
+                    img.onload = () => {
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      ctx?.drawImage(img, 0, 0);
+
+                      const pngUrl = canvas.toDataURL("image/png");
+                      const link = document.createElement("a");
+                      link.download = `mathdraw-${Date.now()}.png`;
+                      link.href = pngUrl;
+                      link.click();
+
+                      toast.success("Canvas exported!");
+                    };
+
+                    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                  } catch (error) {
+                    console.error("Export error:", error);
+                    toast.error("Export failed");
+                  }
+                }}
+                className="group relative bg-black hover:bg-gray-900 active:bg-gray-800 border border-gray-600 hover:border-green-500/50 text-white hover:text-green-300 px-2 py-1.5 sm:px-3 sm:py-2 rounded font-mono text-xs transition-all duration-200 overflow-hidden touch-manipulation"
+              >
+                <div className="absolute inset-0 bg-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                <div className="relative flex items-center justify-center space-x-1 sm:space-x-2">
+                  <span className="text-green-400">⬇</span>
+                  <span className="tracking-wider text-xs sm:text-xs">
+                    EXPORT
+                  </span>
+                </div>
+              </button>
+
               <div className="flex items-center justify-center space-x-1 sm:space-x-2 text-xs text-gray-400 pt-1 border-t border-gray-700/50">
                 <div
                   className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full transition-all duration-300 ${isProcessing ? "bg-purple-400 animate-pulse shadow-sm shadow-purple-400" : "bg-green-400"}`}
@@ -354,7 +424,7 @@ function MathCanvas({ onResult, onResults }: MathCanvasProps) {
               zIndex: 10,
             }}
           >
-            <LaTexRenderer 
+            <LaTexRenderer
               latex={toLatex(currentResult.expr, currentResult.result)}
               displayMode={false}
               className="text-lg"

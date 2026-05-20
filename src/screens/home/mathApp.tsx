@@ -1,31 +1,114 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import axios from "axios";
+import { toast } from "sonner";
 import MathCanvas from "@/components/MathCanvas";
 import { ArrowLeft, History, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { LaTexRenderer, toLatex } from "@/components/LaTexRenderer";
-
-interface MathResult {
-  expr: string;
-  result: string;
-  assign?: boolean;
-}
+import { StepByStepDisplay } from "@/components/StepByStepDisplay";
+import { ImageUploader } from "@/components/ImageUploader";
+import { GraphPlot } from "@/components/GraphPlot";
+import type { MathResult, DictOfVars } from "@/types";
 
 function MathApp() {
   const [results, setResults] = useState<MathResult[]>([]);
+  const [dictOfVars, setDictOfVars] = useState<DictOfVars>({});
   const [showHistory, setShowHistory] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
 
-  const handleResult = (result: MathResult) => {
-    setResults((prev) => [result, ...prev]);
-  };
+  // Extract variable value from result string like "x = 5" or "5"
+  const extractVarValue = useCallback((_expr: string, result: string): number | null => {
+    // First try to extract from result like "x = 5" → 5
+    const assignMatch = result.match(/=\s*(-?[\d.]+)/);
+    if (assignMatch) {
+      return parseFloat(assignMatch[1]);
+    }
+    // If result is just a number
+    const numMatch = result.match(/^(-?[\d.]+)$/);
+    if (numMatch) {
+      return parseFloat(numMatch[1]);
+    }
+    return null;
+  }, []);
 
-  const handleResults = (results: MathResult[]) => {
-    setResults((prev) => [...results, ...prev]);
-  };
+  const handleResult = useCallback((result: MathResult) => {
+    setResults((prev) => [result, ...prev]);
+
+    // If this is an assignment, store the variable
+    if (result.assign && result.expr) {
+      const varName = result.expr.trim();
+      const value = extractVarValue(result.expr, result.result);
+      if (value !== null && varName.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+        setDictOfVars((prev) => ({ ...prev, [varName]: value }));
+      }
+    }
+  }, [extractVarValue]);
+
+  const handleResults = useCallback((newResults: MathResult[]) => {
+    setResults((prev) => [...newResults, ...prev]);
+
+    // Extract all variable assignments
+    newResults.forEach((result) => {
+      if (result.assign && result.expr) {
+        const varName = result.expr.trim();
+        const value = extractVarValue(result.expr, result.result);
+        if (value !== null && varName.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+          setDictOfVars((prev) => ({ ...prev, [varName]: value }));
+        }
+      }
+    });
+  }, [extractVarValue]);
 
   const clearResults = () => {
     setResults([]);
+    setDictOfVars({});
   };
+
+  const handleImageUpload = useCallback(async (imageData: string) => {
+    try {
+      setIsProcessing(true);
+
+      const response = await axios({
+        method: "post",
+        url: `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/calculate`,
+        data: {
+          image: imageData,
+          dict_of_vars: dictOfVars,
+        },
+      });
+
+      const result = response.data;
+
+      if (Array.isArray(result.data) && result.data.length > 0) {
+        const allResults = result.data.map((item: MathResult) => ({
+          expr: item.expr || "Expression",
+          result: String(item.result || "No result"),
+          assign: item.assign || false,
+          steps: item.steps,
+          graphable: item.graphable || false,
+          plotFunction: item.plotFunction,
+          plotDomain: item.plotDomain,
+        }));
+
+        handleResults(allResults);
+        toast.success(`Solved ${allResults.length} equation(s) from image!`);
+      } else {
+        toast.warning("No equations detected in the image. Try a clearer photo.");
+      }
+    } catch (error) {
+      console.error("Error processing image:", error);
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.error ||
+          error.response?.data?.detail ||
+          error.response?.data?.message ||
+          "Failed to process image. Please try again."
+        : "Failed to process image. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [dictOfVars, handleResults]);
 
   return (
     <div className="h-screen bg-black relative">
@@ -45,6 +128,7 @@ function MathApp() {
           </div>
 
           <div className="flex items-center space-x-2">
+            <ImageUploader onImageUpload={handleImageUpload} isProcessing={isProcessing} />
             <button
               onClick={() => setShowHistory(!showHistory)}
               className="flex items-center space-x-2 px-3 py-2 bg-stone-800 hover:bg-stone-700 rounded-lg transition-colors text-stone-300"
@@ -56,7 +140,7 @@ function MathApp() {
         </div>
       </div>
 
-      <MathCanvas onResult={handleResult} onResults={handleResults} />
+      <MathCanvas onResult={handleResult} onResults={handleResults} dictOfVars={dictOfVars} />
 
       {showHistory && (
         <div className="absolute top-20 right-4 w-80 max-h-[calc(100vh-100px)] bg-white rounded-xl shadow-2xl border border-stone-200 z-30">
@@ -102,15 +186,26 @@ function MathApp() {
                     key={index}
                     className="bg-stone-50 rounded-lg p-3 border border-stone-200 hover:bg-stone-100 transition-colors"
                   >
-                    <LaTexRenderer 
+                    <LaTexRenderer
                       latex={toLatex(result.expr, result.result)}
                       displayMode={true}
                       className="text-base"
+                      showCopy={true}
                     />
                     {result.assign && (
                       <div className="text-xs text-stone-500 mt-1">
                         Variable assigned
                       </div>
+                    )}
+                    {result.steps && result.steps.length > 0 && (
+                      <StepByStepDisplay steps={result.steps} />
+                    )}
+                    {result.graphable && result.plotFunction && (
+                      <GraphPlot
+                        plotFunction={result.plotFunction}
+                        plotDomain={result.plotDomain}
+                        title={result.expr}
+                      />
                     )}
                   </div>
                 ))
@@ -132,7 +227,7 @@ function MathApp() {
         <div className="absolute top-20 right-4 bg-white rounded-lg shadow-lg border border-stone-200 p-4 z-20 min-w-64">
           <div className="text-xs text-stone-500 mb-1">Latest Solution:</div>
           <div className="text-lg">
-            <LaTexRenderer 
+            <LaTexRenderer
               latex={toLatex(results[0].expr, results[0].result)}
               displayMode={true}
               className="my-2"

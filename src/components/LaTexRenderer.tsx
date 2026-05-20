@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -6,10 +6,12 @@ interface LaTexRendererProps {
   latex: string;
   className?: string;
   displayMode?: boolean;
+  showCopy?: boolean;
 }
 
-export function LaTexRenderer({ latex, className = '', displayMode = false }: LaTexRendererProps) {
+export function LaTexRenderer({ latex, className = '', displayMode = false, showCopy = false }: LaTexRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (containerRef.current && latex) {
@@ -29,7 +31,60 @@ export function LaTexRenderer({ latex, className = '', displayMode = false }: La
     }
   }, [latex, displayMode]);
 
-  return <div ref={containerRef} className={className} />;
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(latex);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <div className="relative group">
+      <div ref={containerRef} className={className} />
+      {showCopy && (
+        <button
+          onClick={handleCopy}
+          className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs px-1.5 py-0.5 rounded border border-stone-300"
+          title="Copy LaTeX"
+        >
+          {copied ? '✓' : 'Copy'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Standalone copy button for use in other components
+interface CopyLatexButtonProps {
+  latex: string;
+  className?: string;
+}
+
+export function CopyLatexButton({ latex, className = '' }: CopyLatexButtonProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(latex);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`text-xs text-stone-500 hover:text-stone-700 transition-colors ${className}`}
+      title="Copy LaTeX to clipboard"
+    >
+      {copied ? '✓ Copied!' : '📋 Copy LaTeX'}
+    </button>
+  );
 }
 
 // Helper function to convert mathematical expressions to LaTeX
