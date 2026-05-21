@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import "tldraw/tldraw.css";
 import { LaTexRenderer, toLatex } from "./LaTexRenderer";
 import type { MathResult, DictOfVars } from "@/types";
+import { buildApiUrl } from "@/lib/api";
 
 interface MathCanvasProps {
   onResult?: (result: MathResult) => void;
@@ -103,7 +104,7 @@ function MathCanvas({ onResult, onResults, dictOfVars = {} }: MathCanvasProps) {
 
         const response = await axios({
           method: "post",
-          url: `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/calculate`,
+          url: buildApiUrl("/calculate"),
           data: {
             image: canvas.toDataURL("image/png"),
             dict_of_vars: dictOfVars,

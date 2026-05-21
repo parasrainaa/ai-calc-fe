@@ -9,6 +9,7 @@ import { StepByStepDisplay } from "@/components/StepByStepDisplay";
 import { ImageUploader } from "@/components/ImageUploader";
 import { GraphPlot } from "@/components/GraphPlot";
 import type { MathResult, DictOfVars } from "@/types";
+import { buildApiUrl } from "@/lib/api";
 
 function MathApp() {
   const [results, setResults] = useState<MathResult[]>([]);
@@ -71,7 +72,7 @@ function MathApp() {
 
       const response = await axios({
         method: "post",
-        url: `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/calculate`,
+        url: buildApiUrl("/calculate"),
         data: {
           image: imageData,
           dict_of_vars: dictOfVars,
