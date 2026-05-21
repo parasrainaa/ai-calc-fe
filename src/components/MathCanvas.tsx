@@ -6,13 +6,22 @@ import { toast } from "sonner";
 import "tldraw/tldraw.css";
 import { LaTexRenderer, toLatex } from "./LaTexRenderer";
 import type { MathResult, DictOfVars } from "@/types";
-import { buildApiUrl } from "@/lib/api";
 
 interface MathCanvasProps {
   onResult?: (result: MathResult) => void;
   onResults?: (results: MathResult[]) => void;
   dictOfVars?: DictOfVars;
 }
+
+const getCalculateUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL?.trim();
+
+  if (!apiUrl) {
+    throw new Error("VITE_API_URL is not configured.");
+  }
+
+  return `${apiUrl.replace(/\/+$/, "")}/calculate`;
+};
 
 const normalizeMathResult = (item: Partial<MathResult>): MathResult => ({
   expr: item.expr || "Expression",
@@ -63,6 +72,8 @@ function MathCanvas({ onResult, onResults, dictOfVars = {} }: MathCanvasProps) {
       } else if (error.message) {
         errorMessage = error.message;
       }
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
 
     toast.error("Error", { description: errorMessage, duration: 5000 });
@@ -104,7 +115,7 @@ function MathCanvas({ onResult, onResults, dictOfVars = {} }: MathCanvasProps) {
 
         const response = await axios({
           method: "post",
-          url: buildApiUrl("/calculate"),
+          url: getCalculateUrl(),
           data: {
             image: canvas.toDataURL("image/png"),
             dict_of_vars: dictOfVars,

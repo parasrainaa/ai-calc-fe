@@ -9,7 +9,16 @@ import { StepByStepDisplay } from "@/components/StepByStepDisplay";
 import { ImageUploader } from "@/components/ImageUploader";
 import { GraphPlot } from "@/components/GraphPlot";
 import type { MathResult, DictOfVars } from "@/types";
-import { buildApiUrl } from "@/lib/api";
+
+const getCalculateUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL?.trim();
+
+  if (!apiUrl) {
+    throw new Error("VITE_API_URL is not configured.");
+  }
+
+  return `${apiUrl.replace(/\/+$/, "")}/calculate`;
+};
 
 function MathApp() {
   const [results, setResults] = useState<MathResult[]>([]);
@@ -72,7 +81,7 @@ function MathApp() {
 
       const response = await axios({
         method: "post",
-        url: buildApiUrl("/calculate"),
+        url: getCalculateUrl(),
         data: {
           image: imageData,
           dict_of_vars: dictOfVars,
@@ -104,6 +113,8 @@ function MathApp() {
           error.response?.data?.detail ||
           error.response?.data?.message ||
           "Failed to process image. Please try again."
+        : error instanceof Error
+          ? error.message
         : "Failed to process image. Please try again.";
       toast.error(errorMessage);
     } finally {
